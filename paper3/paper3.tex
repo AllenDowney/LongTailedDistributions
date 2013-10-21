@@ -1,0 +1,1151 @@
+\documentclass{elsart} 
+%\usepackage{fullpage}
+\usepackage{psfig}
+\usepackage{url}
+%\usepackage{fancyheadings}
+\pssilent
+
+\newcommand{\x}{$\times$}
+\newcommand{\twiddle}{\scriptsize $\sim$}
+% \renewcommand{\bottomfraction}{0.5}
+
+\renewcommand{\columnsep}{0.25in}
+
+\begin{document}
+
+\begin{frontmatter}
+
+\title{Lognormal and Pareto Distributions in the Internet}
+
+\author{Allen B. Downey\corauthref{cor1}}
+\ead{allen.downey@olin.edu}
+%\ead[url]{www.allendowney.com}
+\corauth[cor1]{}
+\address{Olin College of Engineering\\
+Olin Way\\ 
+Needham, MA 02492}
+
+%\pagestyle{empty}
+%\thispagestyle{empty}
+
+\begin{abstract}
+
+Numerous studies have reported long-tailed distributions for various
+network metrics, including file sizes, transfer times, and burst
+lengths.  We review techniques for identifying long-tailed
+distributions based on a sample, propose a new technique, and apply
+these methods to datasets used in previous reports.  We find that the
+evidence for long tails is inconsistent, and that lognormal and other
+non-long-tailed models are usually sufficient to characterize network
+metrics.  We discuss the implications of this result for current
+explanations of self-similarity in network traffic.
+
+\end{abstract}
+
+\begin{keyword}
+File sizes \sep interarrival times \sep transfer times \sep
+transfer bursts \sep long-tailed distribution \sep self-similarity
+\end{keyword}
+
+\end{frontmatter}
+
+\section{Introduction}
+\label {intro}
+
+Researchers have reported traffic patterns in the Internet that
+show characteristics of self-similarity (see \cite{ParkWillinger00}
+for a survey).  Many proposed explanations of this phenomenon are
+based on the assumption that the distribution of transfer times in the
+network is long-tailed \cite{PaxsonFloyd95} \cite{ParulekarMakowski96}
+\cite{WillingerTaqquShermanWilson95}
+\cite{FeldmannGilbertHuangWillinger99}.  In turn, this assumption is
+based on the assumption that the distribution of file sizes is
+long-tailed \cite{ParkKimCrovella96} \cite{CrovellaTaqquBestavros99}.
+
+We examine these assumptions, looking at data from a variety
+of systems, including many of the datasets originally presented as
+evidence of long-tailed distributions.
+
+Section~\ref{methodology} evaluates existing methods for identifying
+long-tailed distributions, and proposes a new statistical method
+for classifying distributions.
+Section~\ref{filesizes} applies this methodology to empirical
+distributions of file sizes from a variety of systems.
+We find that the distribution of file sizes tends to be lognormal,
+in local file systems and in the World Wide Web.  This tendency is
+strongest in large datasets that aggregate many file systems.
+
+Section~\ref{self-sim} discusses the implications of this result on current
+explanations of self-similarity, and presents alternative explanations.
+The remaining
+sections evaluate these alternatives by examining the distributions of
+interarrival times (Section~\ref{interarrival}),
+transfer times (Section~\ref{transfer}) and
+burst durations (Section~\ref{burst}).
+
+We find that there is little evidence that
+the distribution of interarrival times is long-tailed.  Similarly,
+there is only ambiguous support for long-tailed transfer times.
+On the other hand, there is some evidence that bursts of file
+transfers in both ftp and HTTP are long-tailed.  We investigate this
+possibility and its causes.
+
+
+\section{Methodology}
+\label{methodology}
+
+A fundamental problem in this area of inquiry is the lack of
+methodology for identifying a long-tailed distribution based on a
+sample.  For explanatory models of self-similarity, the relevant
+definition of ``long-tailed'' is a distribution with polynomial tail
+behavior; that is
+%
+\begin{eqnarray}
+P\{X > x\} \sim c x^{-\alpha} & \mbox{as} & x \rightarrow \infty
+\end{eqnarray}
+%
+where $X$ is a random variable, $c$ is a location parameter, and
+$\alpha$ is a shape parameter.  When $\alpha$ is less than 2, the
+distribution has infinite variance, which is
+also required for these models to produce self-similarity.
+
+\subsection {ccdf test}
+
+There are several characteristics we expect to see in a sample
+from a long-tailed distribution.  If we plot the complementary cumulative
+distribution function (ccdf) on a log-log scale, we
+expect a straight line, at least in the tail.
+
+\begin{figure}[tb]
+\centerline{\psfig{figure=../sample/loglog.eps,height=2.2in}}
+\caption{ccdf of samples from lognormal and Pareto distributions
+with similar tail behavior.}
+\label{fig.sample}
+\end{figure}
+
+Figure~\ref{fig.sample} shows the ccdf of samples from
+lognormal and Pareto distributions with similar tail behavior (n=10 000).
+There is an obvious disparity in the bulk of the distribution
+(below the 90th percentile) but the tails overlap.
+
+The definitive characteristic of the long-tailed distribution is that
+its steepness does not increase in the extreme tail.  It continues,
+with constant slope, to the limit of the sample (where it is
+increasingly jagged as the values become sparse).
+
+Most prior claims about long-tailed distributions are based on these
+kinds of observations.  We call this visual examination the
+``ccdf test.''  As this example demonstrates, there are distributions
+like the lognormal that are not long-tailed, but whose ccdfs appear
+long-tailed, at least to a point.  The definitive characteristic of
+these distributions is that the ccdf eventually drops away with
+increasing slope.
+
+
+\subsection {Using \texttt{aest}}
+
+Crovella and Taqqu developed a tool called \texttt{aest} that
+estimates the slope parameter of a Pareto distribution based on a
+sample \cite{CrovellaTaqqu99}.  They propose a graphical technique
+that can ``show the segment of the tail over which heavy-tailed
+behavior appears to be present.''
+
+We applied \texttt{aest} to the samples in Figure~\ref{fig.sample}.
+For the Pareto sample, the actual parameter is $1.42$ and the
+estimate from \texttt{aest} is $1.33$, which is reasonably accurate.
+For the lognormal sample the estimate is $1.42$.
+The graphical output for the two samples is similar.  For both
+distributions \texttt{aest} identifies points that show long-tailed
+behavior.  
+
+Thus, as its authors acknowledge, \texttt{aest} cannot distinguish
+long-tailed and lognormal distributions based on samples.
+Nevertheless, we find it useful for estimating the parameter of a
+sample that is hypothetically Pareto and use it to implement the
+curvature test presented below.
+
+
+\subsection {Model fitting}
+
+A standard way to choose among alternative models is to estimate
+parameters to fit the data and choose whichever model yields the
+better goodness of fit.
+This approach may not be appropriate for this problem.  For both
+models, conventional estimators (moment-matching or maximum
+likelihood) do not necessarily yield the model that is the best match
+for the tail behavior.  Also, it is not obvious how to measure
+goodness of fit.
+
+\begin{figure}[tb]
+\centerline{\psfig{figure=../carey/calgary2.eps,height=2.2in}}
+\caption{ccdf of file sizes from a university web server.}
+\label{fig.calgary}
+\end{figure}
+
+For example, Figure~\ref{fig.calgary} shows the ccdf of 15 160
+files on a web server at the University of Calgary, from traces
+collected by Arlitt and Williamson \cite{ArlittWilliamson96}.
+
+We fitted a Pareto model using \texttt{aest} to estimate $\alpha$
+and choosing the lower bound by eye.  We fitted a lognormal model by
+calculating moments under a log transformation.
+
+The bulk of the distribution clearly fits the lognormal model better,
+but the tail is closer to the Pareto model.  By conventional
+goodness-of-fit measures, the Pareto model is a better fit.
+Nevertheless, the measured distribution clearly displays the
+characteristic behavior of a non-long-tailed distribution: increasing
+slope in the extreme tail.  So in this case quality of fit may be
+misleading.  Although the fitted models are useful for visual
+comparison, they do not provide a mechanical, quantitative way to
+identify long-tailed distributions.
+
+
+\subsection {Percentile-percentile plots}
+
+%\begin{figure}[tb]
+%\centerline{\psfig{figure=../carey/calgary.pp.eps,height=2.4in}}
+%\caption{Percentile-percentile plot of sizes from Calgary dataset.}
+%\label{fig.pp}
+%\end{figure}
+
+\begin{figure}[tb]
+\centerline{\psfig{figure=../carey/calgary.pp.log.eps,height=2.2in}}
+\caption{P-P plot on complementary log axes.}
+\label{fig.logpp}
+\end{figure}
+
+\begin{figure}[tb]
+\centerline{\psfig{figure=../carey/calgary.altpp.log.eps,height=2.2in}}
+\caption{Complementary P-P plot with alternate model.}
+\label{fig.altpp}
+\end{figure}
+
+%\begin{figure}[tb]
+%\centerline{\psfig{figure=../sample/pareto.altpp.log.eps,height=2.2in}}
+%\caption{Complementary P-P plot of a Pareto sample.}
+%\label{fig.paretopp}
+%\end{figure}
+
+A percentile-percentile plot (P-P plot) shows how well the rank
+statistics of a sample match a model distribution.  For each value
+that appears in the sample, the P-P plot shows the actual rank of
+the value versus the expected rank of the value in the model.
+Perfect agreement with the model yields the 45-degree line from
+the origin.
+
+%Figure~\ref{fig.pp} shows a P-P plot for the Calgary dataset.
+%It shows that there is some deviation from the model throughout
+%the distribution, but that overall the agreement is good.
+
+To examine the tail behavior, we can plot the complementary
+probabilities on log axes.  Figure~\ref{fig.logpp} shows this
+transformation for the Calgary dataset.  There is a clear
+divergence from the model in the tail of the distribution
+(the left side of the figure).
+
+Although P-P plots are useful for
+visualizing discrepancies like this, they are not useful for
+identifying long-tailed distributions.  The reason is that, unlike the
+ccdf test, P-P plots depend on parameter estimation.  A P-P plot tests
+the fit of a specific model, not a family of models.
+
+For Figure~\ref{fig.logpp}, we estimated the lognormal model by
+calculating moments.  But if we choose a different model to match the
+tail behavior, we get Figure~\ref{fig.altpp}, which shows good
+agreement with the tail of the distribution.  Even with a sample that
+actually comes from a Pareto distribution, it is often possible to
+find a lognormal model that fits the tail.
+
+%Figure~\ref{fig.paretopp} shows the complementary P-P
+%plot of the Pareto sample from Figure~\ref{fig.sample}, using
+%the parameters of a lognormal model with a similar tail.  The
+%discrepancy in the bulk of the distribution is clear, but the tail
+%behavior is difficult to distinguish from the model.
+
+We conclude that P-P plots do not contribute additional discriminatory
+power beyond what we get from the ccdf test.  Furthermore, they
+suffer a serious disadvantage---the need to estimate parameters.
+
+
+\subsection {Curvature test}
+
+The characteristic that distinguishes the tail behavior of Pareto
+and lognormal distributions is curvature.  In this section we propose
+a way of using measured curvature as a statistic to identify
+long-tailed distributions.
+
+In general it is difficult to estimate the slope and curvature of a
+sample, because numerical differentiation tends to amplify noise.
+Fortunately, for this application, we don't need to know the curvature
+as a function.  Instead, we estimate the average curvature of the tail
+by computing a numerical first derivative and fitting a line to it.
+The slope of that line reflects the overall shape of the ccdf; we call
+this statistic the ``tail curvature.''
+
+By itself this number is meaningless, but we can compare it to the tail
+curvature of a Pareto sample, the curvature of which should be near
+zero.  Then we can use a simulation to estimate the probability
+of seeing the given curvature in a sample from a Pareto distribution.
+
+We formulate the problem as a hypothesis test, where the null
+hypothesis is that the observed distribution is a sample from a Pareto
+distribution.  Assuming that we have a sample of $n$ points, the
+procedure is
+
+\begin{enumerate}
+
+\item Compute the tail curvature of the sample.
+
+\item Use \texttt{aest} to estimate the slope parameter, $\alpha$, of the
+sample.  The location parameter does not affect the measured tail
+curvature so there is no need to estimate it.
+
+\item Test the hypothesis is that the sample came from a Pareto
+distribution with parameter $\alpha$.
+
+\begin{enumerate}
+
+\item Generate 1000 samples with $n$ points from a Pareto distribution
+with slope parameter $\alpha$.
+For each sample, calculate the tail curvature.
+Calculate $\mu$, the mean curvature of the 1000 samples.
+
+\item Calculate $d$, the difference between the curvature of the
+original sample and $\mu$.
+
+\item Count the number of samples, out of 1000, that have
+a curvature that differs from $\mu$ by as much as $d$.
+This count is an estimate of the p-value for the null hypothesis.
+
+\item If the p-value falls below a threshold of confidence, we
+can reject the null hypothesis.
+
+\end{enumerate}
+
+\end{enumerate}
+
+We use a one-sided test, since the alternate hypothesis is that the
+sample comes from a distribution with higher tail curvature than 
+the Pareto.
+
+We have tested this method on synthetic samples with a range
+of sample sizes.  For $n =$ 10 000, we can set a threshold
+on the tail curvature so that 95\% of the Pareto samples are
+classified correctly.  Applying that threshold to the
+lognormal samples, we correctly reject the null hypothesis
+93\% of the time.  For $n =$ 40 000 the test accepts 99\% of the
+Pareto distributions while rejecting 99\% of the lognormal
+distributions.  At least for synthetic data, this method discriminates
+strongly between lognormal and Pareto distributions, even in
+cases where the ccdfs are visually indistinguishable.
+
+One limitation of this method is that it depends on \texttt{aest}
+to estimate the parameter of the Pareto distribution.  For
+a given dataset, it is possible that a different parameter would
+yield a higher p-value.  We have extended this method by searching
+for the parameter that maximizes the p-value, and found that the
+results are very insensitive to the estimated parameter.
+
+The estimated tail curvature depends on several details
+of implementation, but because it is only used
+in a context of comparison, these details can be chosen
+almost arbitrarily with little qualitative effect on the results.
+One important parameter is the lower bound where the tail is
+considered to begin.  In this paper, the lower bound is at
+$Pr \{ X>x \} = 2^{-4}$; approximately the 94th percentile.
+Our reference implementation is available
+from \url{http://allendowney.com/research/longtail/}.
+
+
+\section{File sizes}
+\label{filesizes}
+
+In this section we survey prior studies that have looked at
+measured file sizes and presented evidence that
+the distribution is long-tailed.  
+
+\subsection {File sizes on the web, server's view}
+
+\begin{figure}[p]
+\centerline{\psfig{figure=../carey/nasa.eps,width=3.0in,height=1.8in}}
+\vspace{0.2in}
+\centerline{\psfig{figure=../carey/usask.eps,width=3.0in,height=1.8in}}
+\vspace{0.2in}
+\centerline{\psfig{figure=../carey/calgary.eps,width=3.0in,height=1.8in}}
+\vspace{0.2in}
+\centerline{\psfig{figure=../carey/clarknet.eps,width=3.0in,height=1.8in}}
+\caption{ccdfs for the datasets collected by Arlitt and Williamson.}
+\label{fig.carey}
+\end{figure}
+
+Between October 1994 and August 1995, Arlitt and Williamson
+\cite{ArlittWilliamson96} collected traces from web servers at the
+the University of Calgary, the University of
+Saskatchewan, NASA's Kennedy Space Center, and ClarkNet (an ISP).
+For each server they identified the set of unique file names
+and examined the distribution of their sizes.  They report that these
+distributions match the Pareto model, and they give parameters
+for each dataset, but they do not 
+present evidence that these models fit the data.
+
+We obtained their traces and extracted the name and file size of each
+successful HTTP transfer.  To derive a set of distinct files, we
+treated as distinct any log entries that had the same name but
+different sizes, on the assumption that they represent successive
+versions.  Whether we use this definition of ``distinct'' or the
+alternative, we found a number of distinct files that differs from the
+original report, so our treatment of this dataset may not be identical
+to theirs.  Nevertheless, our ccdfs are visually similar to theirs.
+
+We estimated the Pareto parameter for each dataset using {\tt aest};
+the range of the parameters is from 0.97 to 1.02.  We estimated the
+location parameter by hand to yield the best visual fit for the ccdf
+(this parameter has no effect on the curvature test).  We
+estimated lognormal parameters for each dataset by calculating
+moments.  Figure~\ref{fig.carey} shows these models along with the
+actual ccdfs.
+
+The results are difficult to characterize.  For the NASA dataset the
+lognormal model is clearly better.  For the Saskatchewan dataset the
+Pareto model is better.  The other two ccdfs lie
+closer to the Pareto model, but both show the characteristic
+curvature of the lognormal distribution.
+
+For these cases, the curvature test provides some insight.  The tail
+curvature of the Calgary dataset is 0.141, which has a negligible
+p-value under the Pareto model.  This means that we can reject the
+hypothesis that the data are a sample from a Pareto distribution.
+The tail curvature of the ClarkNet
+dataset is 0.023, which has
+$p > 0.5$, which means we cannot reject the hypothesis that the
+sample comes from a long-tailed distribution.
+
+Although the ClarkNet and Saskatchewan datasets provide some support for
+the Pareto model, the evidence is weak and mixed.
+
+Arlitt and Jin collected access logs from the 1998 World Cup Web site
+\cite{ArlittJin99} and reported the distribution of file sizes for the
+20 728 ``unique files that were requested and successfully transmitted
+at least once in the access log.''
+They report that the bulk of the distribution is roughly
+lognormal, but that the tail of the distribution ``does
+exhibit some linear behavior'' on log-log axes.  They estimate
+a Pareto model for the tail, with $\alpha = 1.37$.
+
+\begin{figure}[tb]
+\centerline{\psfig{figure=../arlitt/arlitt.eps,height=2.2in}}
+\caption{
+ccdf of file sizes from World Cup dataset. }
+\label{fig.arlitt}
+\end{figure}
+
+We obtained the file sizes from this dataset and fitted lognormal
+and Pareto models, shown in
+Figure~\ref{fig.arlitt}.  For
+files smaller than 128KB, the lognormal model is a slightly better
+fit.  For larger files, neither model describes the data well.
+
+The curvature test does not support either model; the tail curvature
+is -0.075, which has a low p-value for the Pareto and lognormal
+models.  These results are typical for small datasets from a single
+file system; tail behavior is often idiosyncratic and
+hard to characterize.
+
+\begin{figure}[tb]
+\centerline{\psfig{figure=../arlitt/figure2b.eps,width=2.7in}}
+\caption{
+Distribution of file sizes from a Web proxy server
+(reproduced from \cite{ArlittFriedrichJin98}).}
+\label{fig.arlitt3}
+\end{figure}
+
+Arlitt, Friedrich and Jin did a similar analysis of more than 16
+million unique HTML files transferred by the Web proxy server of an
+ISP \cite{ArlittFriedrichJin98}.  They plot the cdf of file sizes and
+show that a lognormal model fits it well.  They also show the ccdf on
+log-log axes and claim that ``since this distribution does exhibit
+linear behavior in the upper region we conclude that it is indeed
+heavy-tailed.''
+
+That figure is reproduced here as Figure~\ref{fig.arlitt3}.  We do not
+see linear behavior in the ccdf; it shows the
+characteristic curvature of a non-long-tailed distribution.
+
+
+\subsection {File sizes on the web, client's view}
+\label{webclient}
+
+Crovella et al.~presented one of the first measurements of file sizes
+that appeared to be long-tailed.  In 1995 they instrumented web
+browsers in computer labs at Boston University to collect traces of
+the files accessed \cite{CunhaBestavrosCrovella95}
+\cite{CrovellaBestavros96} \cite{BarfordBestavrosBradleyCrovella99}.  
+
+\begin{figure}[tb]
+\centerline{\psfig{figure=../crovella/crovella.eps,height=2.2in}}
+\caption{
+ccdf of file sizes from Crovella dataset.}
+\label{fig.crovella}
+\end{figure}
+
+We obtained the dataset presented in \cite{CrovellaBestavros96} and
+identified as W95 in \cite{BarfordBestavrosBradleyCrovella99} and
+extracted the unique file names, yielding 36 208 unique files.
+Figure~\ref{fig.crovella} shows the resulting ccdf along with a Pareto
+model and a lognormal model.  The slope of the Pareto model is 1.05,
+the value reported by Crovella et al.  The location parameter is 3800,
+which we chose to be the best match for the ccdf, and visually similar
+to Figure 8 in \cite{CrovellaBestavros96}.
+
+The Pareto model is a good fit for file sizes between 4KB and 4MB,
+which includes about 25\% of the files.
+Based on this fit, Crovella et al.~argue that this distribution is
+long-tailed.  At the same time, they acknowledge two disturbing
+features: the apparent curvature of the ccdf and its divergence from
+the model for files larger than 4MB.
+
+The lognormal model is a better fit for the data over most of
+the range of values, including the extreme tail.  Also, it accurately
+captures the apparent tail behavior, which drops off with increasing
+steepness.  The curvature
+test confirms the visual evaluation; the tail curvature is
+0.050, which has a probability $p < 0.03$ under the Pareto model.
+We conclude that this dataset provides greater support for the
+lognormal model than for the Pareto model.
+
+
+
+\subsection {Multimodal models}
+
+\begin{figure}[tb]
+\centerline{\psfig{figure=../mixmode/w98.eps,height=2.2in}}
+\caption{
+ccdf of file sizes from Web browser logs
+and a two-mode lognormal model.}
+\label{fig.w98}
+\end{figure}
+
+\begin{figure}[tb]
+\centerline{\psfig{figure=../mixmode/usask.mix.eps,height=2.2in}}
+\caption{
+ccdf of file sizes from the Saskatchewan dataset
+and a two-mode lognormal model.}
+\label{fig.usask.mix}
+\end{figure}
+
+In this section we present two
+datasets where the lognormal model does not match the
+observed tail behavior, but a two-mode lognormal model does.
+
+In 1998, Barford et al.~instrumented Web browsers at Boston University
+and collected the sizes of 66 998 downloaded files
+\cite{BarfordBestavrosBradleyCrovella99}.  They fit a hybrid model to
+these data, with a lognormal body and a Pareto tail, and suggest that
+the distribution is long-tailed.
+
+Figure~\ref{fig.w98} shows the ccdf of this dataset along with
+a two-mode lognormal model.
+For this example we performed an automated search for the set of
+parameters that minimizes the Kolmogorov-Smirnov statistic.  There
+are more rigorous techniques for estimating multimodal normal
+distributions, but they are not necessary for our purpose here, which
+is to demonstrate a lognormal model that fits the data well.
+
+Although this dataset also fits the Pareto model, the curvature test
+suggests that the lognormal model is a better characterization.
+The tail curvature is 0.044, which is
+similar to the curvature of the lognormal model (0.045), but unusual for
+the Pareto model ($p < 0.002$).
+
+The two-mode lognormal model also works well for the Saskatchewan
+dataset, shown in Figure~\ref{fig.usask.mix}.  Of course, the two-mode
+model has more parameters, so a better fit is not surprising.
+Nevertheless, it is still reasonably parsimonious (5 parameters), and
+the quality of the fit is quite good.  These examples show that, even
+in cases where the Pareto model fits well, there are non-long-tailed
+models that are just as realistic, and that avoid the analytic
+difficulties of long-tailed distributions (infinite moments and long
+transients \cite{fishman03how}).
+
+
+\subsection {Aggregation}
+
+\begin{figure}[tb]
+\centerline{\psfig{figure=../irlam/ufs93/all.eps,height=2.2in}}
+\caption{ccdf of file sizes in the Irlam survey.}
+\label{fig.irlam}
+\end{figure}
+
+\begin{figure}[tb]
+\centerline{\psfig{figure=../micro/all.eps,height=2.2in}}
+\caption{ccdf of file sizes in the Microsoft survey.}
+\label{fig.ms}
+\end{figure}
+
+Looking at file sizes on the Internet, we are seeing the mixture of
+file sizes from a large number of file systems.
+To characterize this aggregate distribution,
+we consider two large datasets: a survey of 655 UNIX
+systems collected by Gordon Irlam in 1993 \cite{Irlam94} and a survey
+of 10 568 Windows machines collected by Douceur and Bolosky in 1998
+\cite{DouceurBolosky99}.
+
+The Irlam survey contains 6 156 581 files with 161 583 different
+sizes.  The size of this sample allows us to examine the extreme tail
+of the distribution.  There are 169 files bigger than 32MB and 16
+files bigger than 128MB.  The largest file is 377MB.
+
+Figure~\ref{fig.irlam} shows the ccdf of these file sizes along with
+lognormal and Pareto models.  The lognormal model is a better fit.
+Throughout the range, the ccdf displays the characteristic curvature
+of the lognormal distribution.  The tail curvature is 0.024, which has
+probability $p < 0.001$ under the Pareto model.
+
+Douceur and Bolosky collected the sizes of more than 140 million files
+from 10 568 machines at Microsoft Corporation
+\cite{DouceurBolosky99}.  They report that the bulk of the
+distribution fits a lognormal distribution, and they propose a
+two-mode lognormal model for the tail, but they also suggest that the
+tail fits a Pareto distribution.
+
+Figure~\ref{fig.ms} shows the ccdf
+of file sizes from this dataset along with three models we chose to
+fit the tail: a lognormal model, a Pareto model and a two-mode
+lognormal model.
+
+Again, the tail of the distribution displays the characteristic
+curvature of a non-long-tailed distribution.  The simple lognormal
+model captures this behavior well, although it is offset from the
+actual distribution.  The two-mode lognormal model fits the entire
+distribution well.  The tail curvature is 0.029, which has probability
+$p < 0.001$ under the Pareto model.
+
+We conclude that the lognormal model is sufficient to describe the
+aggregate distributions that result from combining large numbers of
+file systems, and that these datasets provide little evidence that the
+overall distribution of file sizes is long-tailed.
+
+To summarize this section, we find that many of the datasets that
+have been presented as evidence of long-tailed file sizes actually
+support the lognormal model.  Although some small datasets appear
+to fit the Pareto model, larger datasets that aggregate files from
+many systems show the characteristics of a non-long-tailed
+distribution.
+
+
+
+\section{Self-similar network traffic}
+\label{self-sim}
+
+Many current explanations of self-similarity in the Internet are based
+on the assumption that some network metric---either transfer times,
+interarrival times, or burst sizes---is long-tailed.
+
+One of these explanatory models is an M/G/$\infty$ queue in which
+network transfers are customers and the network
+is an infinite-server system \cite{PaxsonFloyd95}
+\cite{ParulekarMakowski96}.  If the distribution of
+service times is long-tailed then the number of customers in the
+system is an asymptotically self-similar process.
+
+Willinger et al.~propose an alternative that models
+users as ON/OFF sources in which ON periods correspond to network
+transmissions and OFF periods correspond to inactivity
+\cite{WillingerTaqquShermanWilson95}.  If the distribution of the
+lengths of these periods is long-tailed, then as the number of sources
+goes to infinity, the superposition of sources yields an aggregate
+traffic process that is fractional Gaussian noise, which is
+self-similar at all time scales.
+
+In their original model the lengths of the ON and OFF periods were
+identically-distributed, long-tailed random variables.  A companion
+paper proves that the model yields self-similarity if either the
+distribution of ON periods {\em or} the distribution of OFF periods is
+long-tailed \cite{TaqquWillingerSherman97}.
+
+Two subsequent papers have extended this model to include a realistic
+network topology, bounded network capacity and feedback due to the
+congestion control mechanisms of TCP \cite{ParkKimCrovella96}
+\cite{FeldmannGilbertHuangWillinger99}.  The more
+realistic models yielded qualitatively similar results.
+
+In the next few sections, we examine the metrics that have been reported
+to be long-tailed and review the evidence for these reports.
+
+
+\section{Interarrival times}
+\label{interarrival}
+
+Paxson and Floyd \cite{PaxsonFloyd95}
+measure the distribution of interarrival times for packets
+within Telnet connections, and report that ``the main body
+of the observed distribution fits very well to a Pareto
+distribution ... with shape parameter 0.9, and the upper 3\%
+tail to a Pareto distribution with [shape parameter] 0.95.''
+They do not show the ccdf or explain how they chose these parameters.
+
+This claim is based on traces collected at Lawrence Berkeley Labs
+during 1-hour intervals in December 1993 and January 1994.
+Unfortunately, the trace they describe, LBL
+PKT-1, is not available from the Internet Traffic Archive (ITA).
+Three other traces from the same dataset are, but they include all
+TCP packets, not just Telnet packets.  The traces have been
+sanitized, so the contents of the packets, including protocol
+information, have been removed.
+As a result, we cannot repeat the original analysis, but we can
+examine the interarrival times for all TCP packets.
+
+We obtained four packet traces: LBL PKT-3, LBL PKT-4, LBL PKT-5, and
+DEC PKT-1.  The first three are from Lawrence Berkeley Labs; the last
+from Digital Equipment Corporation (DEC), collected in March 1995.
+For each trace, we identified connections by the source
+and destination addresses and the source and destination ports.
+Traffic from the originator to the responder is considered
+a different connection from the return traffic.  Within each
+connection, we calculated the time between packet arrivals.
+Then we computed the ccdf of the interarrival times.
+
+\begin{figure}[tb]
+\centerline{\psfig{figure=../pkt/inter2.eps,height=2.2in}}
+\caption{ccdf of interarrival times for TCP packets.}
+\label{fig.tcp_inter}
+\end{figure}
+
+The four datasets yield similar distributions, so we aggregated them
+into a single dataset.  Figure~\ref{fig.tcp_inter} shows the resulting
+ccdf, which includes 4 410 851 interarrival times.  There is a small
+mode (0.001\% of the data) at 75 seconds, which is the default
+interval for the TCP keep-alive mechanism.
+
+For intervals smaller than 75 seconds, we agree with Paxson and
+Floyd that the Pareto model fits this data well.  Above 75
+seconds, the ccdf starts to fall away from the Pareto model with
+increasing slope.  It is possible, though, that this discrepancy
+is a measurement artifact.  Since the traces are only an hour long,
+they cannot contain an interval longer than an hour, and tend to
+under-represent intervals in proportion to their length.
+
+We conclude that there is some support for the Pareto model of
+interarrival times, but it may be useful to look
+at evidence from longer traces.
+
+%The estimated tail curvature for this ccdf is 0.040, which has
+%a negligible chance of occurring if the underlying model has
+%a Pareto tail (p $<$ 0.001).
+
+
+% \begin{figure}[tb]
+% \centerline{\psfig{figure=../paxson/inter2.eps,height=2.2in}}
+% \caption{ccdf of time between TCP connections from LBL traces.}
+% \label{fig.conn}
+% \end{figure}
+
+% Feldmann \cite{Feldmann98} examines times between TCP connections in
+% traces from several networks and estimates four models to fit the
+% empirical cdfs: Weibull, Pareto, lognormal and exponential.  For all
+% datasets, the Weibull distribution is the best fit for the bulk of the
+% distribution.  She does not examine the tail behavior or
+% make any claim about whether the distribution is long-tailed in the
+% sense we are using here.
+
+% To investigate the times between TCP connections, we obtained the LBL
+% CONN-7 trace from the ITA and computed the ccdf of the 782,280
+% interarrival times, shown in Figure~\ref{fig.conn}.  The figure shows
+% three models fitted to the data: lognormal, Pareto and Weibull.
+% The lognormal and Pareto models are not a good fit, but
+% the Weibull model is a near perfect fit.
+% Since the Weibull distribution is not long-tailed, we conclude that
+% this dataset does not support the hypothesis that the distribution of
+% interarrival times for TCP connections is long-tailed.
+
+% \begin{figure}
+% \centerline{\psfig{figure=../paxson/inter.weibull.eps,height=2.4in}}
+% \caption{Weibull test for TCP connection interarrivals.}
+% \label{fig.weibull}
+% \end{figure}
+
+% There is another method to test whether a sample fits a Weibull
+% distribution.  If we plot $\log \log \{1 / ccdf(x)\}$ versus
+% $\log x$, a Weibull distribution yields a straight line
+% \cite{JohnsonKotzBalakrishnan94}.
+% Figure~\ref{fig.weibull} shows the Weibull test for this distribution. 
+% Except for the extreme tail, the Weibull model is a good match
+% for the data.
+
+
+\subsection{HTTP Request Interarrivals}
+
+Crovella and Bestavros \cite{CrovellaBestavros95} examine the
+distribution of times between web requests (OFF times) and report
+that, although it is long-tailed, it is less long-tailed than the ON
+time distribution.
+
+\begin{figure}[tb]
+\centerline{\psfig{figure=../crovella/inter/inter2.eps,height=2.2in}}
+\caption{ccdf of time between web requests from the W95 dataset.}
+\label{fig.crovella.inter}
+\end{figure}
+
+Their traces (dataset W95) contain logs from web browsers on 37
+workstations.  For each browser we compute the time between successive
+requests and form the ccdf of the interarrival times.  Since the
+distributions were similar for each machine, we aggregated the data
+into a single ccdf, shown in Figure~\ref{fig.crovella.inter}.
+
+In this case, the parameter estimated by {\tt aest} is not a good
+match for the data, so we show an alternative model chosen by eye.
+
+The Pareto and lognormal models match parts of the distribution, but
+neither is a good match for the extreme tail.  As in the TCP packet
+datasets, the duration of the trace (42 days) explains some of the
+behavior of the extreme tail.  Some of the longest intervals are on
+the order of 10 days, which means that they might be underrepresented
+by a factor of 4.  So, if we ignore the extreme tail, the Pareto model
+may describe this dataset well.
+
+Arlitt and Williamson examined the pattern of accesses to individual
+files on a web server \cite{ArlittWilliamson96}.  For each file that
+was accessed more than once in their traces, they computed the
+time between references.  They plot the distribution of these
+interarrival times for each of the servers they studied.  They
+report that these distributions are approximately exponential
+and independent, but they omit the statistical analysis.
+
+Deng collected traces of WWW requests from users at GTE Laboratories
+to remote servers, and examined the distribution of times between
+document requests \cite{Deng96Empirical}.  He divides the traffic into
+ON and OFF periods, where an ON period contains a series of requests
+with interarrival times less than 60 seconds.  Interarrival times
+longer than 60 seconds are considered to be OFF periods.  He reports
+that the distribution of OFF times fits a Pareto distribution, but
+he does not show the ccdf, or compare the Pareto model to the alternatives.
+
+In summary, there are reports that times between WWW requests
+are long-tailed, but the evidence is inconsistent and inconclusive.
+
+
+
+\section{Transfer times}
+\label{transfer}
+
+Even if file sizes are not long tailed, transfer times might be.
+The performance of wide-area networks is highly variable in time; it
+is possible that this variability causes long-tailed transfer times.
+In this section we investigate the relationship between file sizes
+and transfer times for HTTP and ftp transfers.
+
+
+\subsection {HTTP transfer times}
+\label{www}
+
+Crovella and Bestavros examine the distribution of transfer
+times in the W95 dataset, and report that it is long-tailed
+\cite{CrovellaBestavros96}.
+
+\begin{figure}[tb]
+\centerline{\psfig{figure=../crovella/times.eps,height=2.2in}}
+\caption{ccdf of transfer times for web requests from BU traces.}
+\label{fig.transfer}
+\end{figure}
+
+We repeated their analysis of the 135 357 transfers they
+observed; Figure~\ref{fig.transfer} shows the resulting ccdf along
+with a Pareto model and a lognormal model.  In this case we chose the
+parameters of the lognormal model by hand.
+
+The lognormal model is a better fit for the ccdf, which has the
+characteristic curvature of a non-long-tailed distribution.
+The tail curvature is 0.042, which has
+probability $p < 0.001$ under the Pareto model.
+We conclude that this dataset does not support the hypothesis that
+transfer times are long-tailed.
+
+\begin{figure}[tb]
+\centerline{\psfig{figure=../feldmann/feldmann.eps,width=3.0in,height=2.0in}}
+\caption{ccdf of session sizes from Feldmann dataset
+(reproduced from \cite{FeldmannGilbertWillingerKurtz98}).}
+\label{fig.feldmann}
+\end{figure}
+
+Feldmann et al.~argue that the distribution of Web session sizes is
+long-tailed, based on data they collected from an ISP
+\cite{FeldmannGilbertWillingerKurtz98}.  They use the number of bytes
+transferred during each modem connection as a proxy for bytes
+transferred during a Web session.  The evidence they present
+is the ccdf in their Figure 3, reproduced
+here as Figure~\ref{fig.feldmann}.  They do not report what criteria
+they use to identify the distribution as long-tailed, other than ``a
+crude estimate of the slope of the corresponding linear regions.''
+In our opinion, this distribution shows the
+characteristic curvature of a non-long-tailed distribution
+and does not support the Pareto model.
+
+
+\subsection {ftp transfer times}
+\label{ftp}
+
+Paxson \cite{Paxson94} examines the sizes of ftp transfers and
+reports that the distribution fits a lognormal distribution well.
+He does not discuss the tail behavior.
+
+\begin{figure}[tb]
+\centerline{\psfig{figure=../paxson/ftp.sizes.eps,height=2.2in}}
+\caption{ccdf of ftp transfer sizes from LBL traces.}
+\label{fig.tcp.sizes}
+\end{figure}
+
+\begin{figure}[tb]
+\centerline{\psfig{figure=../paxson/ftp.times.eps,height=2.2in}}
+\caption{ccdf of ftp transfer times from LBL traces.}
+\label{fig.tcp.times}
+\end{figure}
+
+Using the LBL CONN-7 dataset again, we extracted the 105 542 transfers
+that used the ftp-data protocol, were successful, and transported a
+non-zero number of bytes.  Figure~\ref{fig.tcp.sizes} shows the ccdf
+of these transfer sizes; Figure~\ref{fig.tcp.times} shows the ccdf of
+transfer times.
+
+We agree with Paxson that the distribution of sizes fits the lognormal
+distribution, both in the bulk, as shown in his paper,
+and in the tail, as shown here.  The Pareto model also fits the tail
+well, but the curvature of the tail suggests a non-long-tailed model.
+The tail curvature is 0.113, which has a negligible p-value under the
+Pareto model.
+
+On the other hand, the lognormal model does not fit the ccdf of
+transfer times at all.  It is not clear whether the Pareto model is
+better.  The slope parameter estimated by \texttt{aest} matches a part
+of the tail, but for any curve there is likely to be a line that fits
+as well.  Nevertheless, the tail of this ccdf is straight enough to
+suggest a long-tailed distribution.  The tail curvature is 0.0011,
+which is not at all unusual for a Pareto tail ($p > 0.95$).
+
+In prior work \cite{Downey01Evidence} we propose a model for the
+relationship between transfer sizes and transfer times, based on the
+observed distribution of throughput.  We show evidence that the
+distribution of throughput is lognormal, in which case we can model
+transfer times as the ratio of two lognormal variables, size and
+throughput.  The result is a lognormal distribution of transfer times.
+
+We also report a strong correlation between transfer size and
+throughput, $\rho \approx 0.70$, which indicates that large transfers
+tend to achieve better throughput.  The effect of this correlation
+is to reduce the variance in transfer times.  In some cases this
+effect makes the ccdf appear straighter, but we are reluctant to take
+this shape as evidence of a long-tailed distribution, since the model
+suggests that transfer times are actually {\em less} long-tailed than
+transfer sizes.
+
+
+
+\section {Transfer Bursts}
+\label{burst}
+
+The motivation for investigating the sizes of transfer bursts is
+that ON periods in the ON/OFF model might correspond not to
+individual file transfers, but to periods of network activity
+interrupted only by network delays and short intervals between files.
+From the network's point of view there is no difference between a
+delay caused by a TCP timeout and a delay with the same duration
+caused by user activity or processing delays.
+
+
+\subsection {ftp bursts}
+
+Paxson \cite{Paxson94} discusses ftp data bursts, which he defines as
+a sequence of ftp transfers in the same session that are spaced less
+than 4 seconds apart.  He does not show the ccdf, but he reports that
+the largest 5\% of the bursts are well-modeled using a Pareto
+distribution.  This claim appears again in subsequent work
+\cite{PaxsonFloyd95}, along with an estimated parameter for the Pareto
+model.
+
+We applied Paxson and Floyd's analysis to the LBL CONN-7 dataset,
+grouping consecutive ftp data transfers into bursts if the time
+between the end of one and the beginning of the next is less than 4
+seconds.  We found 56 155 such bursts, which is somewhat more than the
+number in the original paper (48 568).  We don't know the reason for
+the discrepancy.  The longest burst comprises 979 connections (which
+is the same as in the original paper).
+
+% The parameter estimated by
+% \texttt{aest} is 1.0, but the Pareto model in the figure has $\alpha =
+% 1.3$, which is a better fit for the tail.
+
+\begin{figure}[tb]
+\centerline{\psfig{figure=../paxson/burst2.eps,height=2.2in}}
+\caption{Distribution of burst sizes (total bytes) from LBL traces.}
+\label{fig.bursts}
+\end{figure}
+
+We computed the total number of bytes in each burst;
+Figure~\ref{fig.bursts} shows the distribution of these burst sizes,
+along with lognormal and Pareto models.
+Both models fit the distribution well, but the Pareto model is
+better.  The tail of the ccdf is close to straight, right out to the
+boundary of the measurement.
+
+%Nevertheless, there is some curvature;
+%the measured tail curvature is 0.073, which has a negligible p-value.
+
+Since there is some evidence that the distribution of burst
+sizes is long-tailed, it
+would be useful to understand how it comes about.  A first step is to
+look at the distribution of burst lengths (the number of transfers in
+a burst).
+
+\begin{figure}[tb]
+\centerline{\psfig{figure=../paxson/burst.count.eps,height=2.2in}}
+\caption{Distribution of burst lengths (number of transfers) from the
+LBL traces.}
+\label{fig.ftp.length}
+\end{figure}
+
+Figure~\ref{fig.ftp.length} shows the distribution of burst lengths
+and two models.
+The lognormal model
+is a good fit for the ccdf, which clearly has an increasing slope.
+The estimated tail curvature is 0.105, which has a negligible
+p-value under the Pareto model.  We conclude that the tail behavior of
+burst lengths for this dataset is roughly lognormal.
+
+% The lognormal model has two modes: the first mode
+% contains the 85\% of bursts that contain a single transfer.  The
+% parameters of the second mode were chosen by eye.
+
+
+\subsection {HTTP bursts}
+
+Charzinski \cite{Charzinski00} collected traces of HTTP activity on a
+LAN at a German university (Trace A) and a small ISP (Trace B).  For
+both traces he measures the duration of TCP connections that contain
+one or more HTTP transfers.  He measures the durations of these
+connections and reports that they show polynomial tail behavior.  The
+ccdf of durations is approximately straight, with only a slight
+deviation in the extreme tail.
+
+\begin{figure}[tb]
+\centerline{\psfig{figure=../char/MS.length.eps,height=2.2in}}
+\vspace{0.1in}
+\centerline{\psfig{figure=../char/5SL.length.eps,height=2.2in}}
+\caption{Distribution of burst lengths (number of transfers) for
+HTTP connections.}
+\label{fig.http.length}
+\end{figure}
+
+He also considers the number of requests per connection, which is
+analogous to burst length.  In both traces the majority of connections
+(69\% and 73\%) contain a single request, but some contain hundreds.
+Figure~\ref{fig.http.length} shows the ccdf of burst lengths for each
+trace.  There are \mbox{455 992} connections in Trace A and 739 005 in Trace
+B.
+
+For Trace A, the lognormal model fits the bulk
+reasonably well, but not the tail.
+The Pareto model fits the distribution well between 10
+and 100 transfers per connection.  The extreme tail deviates from this
+line, and may be dropping off with increasing slope, but there are
+very few data at this extreme.  We conclude that this dataset
+supports the Pareto model, but in this case the parameter is 2.3,
+so the distribution is not long-tailed in the sense required to
+explain self-similarity.
+
+%The tail
+%curvature is -0.097, which is unlikely for a Pareto distribution, but
+%even less likely for a lognormal distribution.
+
+For Trace B, the Pareto model is a reasonable fit, but with the
+estimated parameter, 2.5, the distribution is not long-tailed.
+The lognormal model fits very well.
+
+Comparing Figures~\ref{fig.ftp.length} and \ref{fig.http.length}, it
+is surprising how similar the distributions are, considering that they
+come from different places, times, and applications.  In particular,
+it is surprising that ftp and HTTP have similar burst behavior, since
+for ftp transfers, users generally determine what files constitute a
+burst; for HTTP transfers, web designers do.
+
+Nevertheless, ftp seven years ago and HTTP now have about the same
+percentage of single-transfer connections, and the distribution of
+burst lengths has the same shape and range.  This observation suggests
+that there are common characteristics in the way information is
+organized into files, and the way files are organized into clusters
+(directories, pages) that are likely to be transported as a burst.
+
+
+\section{Conclusions}
+\label{conclusions}
+
+We have reviewed techniques for identifying long-tailed distributions,
+and applied them to datasets that have been reported as long-tailed.
+Unfortunately, no single test is sufficient to provide convincing
+evidence of a long-tailed distribution.  Looking at previous claims
+for long-tailed distributions, we find that some are not well
+supported by the evidence.  In other cases, the evidence is ambiguous.
+
+\begin {itemize}
+
+\item In our review of published observations we did not find
+compelling evidence that the distribution of file sizes is
+long-tailed.
+
+% \item Since some explanations of self-similarity in the
+% Internet are based on the assumption of long-tailed file sizes,
+% these explanations may need to be revised.
+
+\item There is some evidence that interarrival times for TCP packets
+can be long-tailed, but longer traces are needed to make a stronger
+claim.  We looked at interarrival times for several other kinds of
+events, and found only inconsistent evidence of long-tailed
+distributions.
+
+\item There is some evidence that the distribution of transfer times
+can be long tailed.
+
+\item The distribution of burst sizes for ftp and HTTP
+transfers appears to be long tailed.  The distribution of burst
+lengths (number of transfers) is similar for ftp and HTTP traffic and
+does not appear to be long-tailed.
+
+\item In many cases the lognormal model describes the tail behavior of
+observed distributions as well as or better than the Pareto model.
+Thus, in cases where lognormal models are more convenient, they can
+be used without sacrificing realism.
+
+\end{itemize}
+
+We have examined some of the causes that have been proposed for
+self-similar network traffic, and found that file sizes and transfer
+times, and interarrival times may not be sufficiently long-tailed to
+cause self-similarity, but burst sizes may be.
+
+As ongoing work, we are examining the relationship between the number
+of transfers in a burst and the size of the burst, and looking for
+a fundamental explanation of the distribution of burst lengths.
+
+
+\subsection*{Acknowledgments}
+
+Thanks to Mark Crovella (Boston University), Vern Paxson (ICIR)
+and Carey Williamson (University of Saskatchewan) for making their
+datasets available on the Web; Martin Arlitt (Hewlett-Packard) for
+providing processed data from the datasets he collected; Gordon Irlam
+for his survey of file sizes, and John Douceur (Microsoft Research)
+for sending me the Microsoft dataset.  Also, many thanks to Joachim
+Charzinski (Siemens AG) for providing the burst lengths from his
+traces.
+
+Thanks to Kim Claffy and Andre Broido
+(CAIDA), Mark Crovella, Rich Wolski (University of Tennessee) and
+Lewis Rothberg (University of Rochester) for reading drafts of this
+paper and making valuable comments.  Finally, thanks to the reviewers
+who have read and helped improve earlier presentations of this work.
+
+\bibliographystyle{elsart-num}
+%\bibliographystyle{plain}
+\bibliography{paper}
+
+\end{document}
+
