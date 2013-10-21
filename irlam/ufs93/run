@@ -1,0 +1,46 @@
+#!/bin/sh
+
+./check data.mail/*
+
+./combine data.mail/* > tmp.data.combine
+
+./total tmp.data.combine | awk '/bytes/,/files/ {print $0}' > result.info
+echo "filesytems" `ls data.mail | wc -l` >> result.info
+echo "systems" \
+    `ls data.mail | sed 's/\.[0-9]*$//' | sort | uniq | wc -l` >> result.info
+
+./sizes tmp.data.combine > result.sizes
+
+BASE_SIZE=`./total tmp.data.combine | awk '/bytes/ {print $2}'`
+echo "fragment size   overhead" > result.block
+echo "   (bytes)        (%)" >> result.block
+BSIZE=128
+LAST=tmp.data.combine
+while [ $BSIZE -le 16384 ]; do
+    ./block $BSIZE $LAST > tmp.data.combine.$BSIZE
+    SIZE=`./total tmp.data.combine.$BSIZE | awk '/bytes/ {print $2}'`
+    awk 'END {printf("%9d %11.1f\n", \
+             '$BSIZE', \
+             ('$SIZE' - '$BASE_SIZE') / '$BASE_SIZE' * 100);}' \
+        /dev/null >> result.block
+    LAST=tmp.data.combine.$BSIZE
+    BSIZE=`expr 2 \* $BSIZE`
+done
+
+rm -rf tmp.data.mail.1024
+mkdir tmp.data.mail.1024
+for f in data.mail/*; do
+    ./block 1024 $f > `echo $f | sed 's/data.mail/tmp.data.mail.1024/'`
+done
+BASE_SIZE=`./total tmp.data.mail.1024/* | awk '/bytes/ {print $2}'`
+echo "bytes per   overhead" > result.inode
+echo "  inode       (%)" >> result.inode
+IRATIO=1024
+while [ $IRATIO -le 20480 ]; do
+    SIZE=`./inode_space $IRATIO tmp.data.mail.1024/*`
+    awk 'END {printf("%7d %9.1f\n", \
+             '$IRATIO', \
+             '$SIZE' / '$BASE_SIZE' * 100);}' \
+        /dev/null >> result.inode
+    IRATIO=`expr $IRATIO + 1024`
+done

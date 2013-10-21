@@ -1,0 +1,25 @@
+#!/bin/sh
+
+iratio=$1
+shift
+
+nawk '
+function max(a,b) { if (a > b) return a; else return b; }
+(FNR == 1) {
+    inodes = max(total_count, total_size / '$iratio');
+    excess += inodes * ('$iratio' + 128) - total_size;
+    total_size = 0;
+    total_count = 0;
+}
+{
+    size = $1;
+    count = $2;
+    total_size += size * count;
+    total_count += count;
+}
+END {
+    inodes = max(total_count, total_size / '$iratio');
+    excess += inodes * ('$iratio' + 128) - total_size;
+    print excess;
+}
+' $*

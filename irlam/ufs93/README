@@ -1,0 +1,46 @@
+This directory contains unix file size data collected with the assistance
+of the Internet community circa October 1993.
+
+    README.request
+        Copy of posting requesting help in gathering file size data.
+    README.analysis
+        Copy of posting reporting results of the file size survey.
+    data.mail/
+        Directory containing file size data provided by the Internet
+        community.  Each file contains file size data for one file
+        system - represented as a list of file size, file count pairs.
+        The filename is derived from the mail address from which the
+        data was sent.  Unfortunately many machines can have the same
+        "From" address.  Only about half the time did the mail come
+        from "root" - consequently in some cases not all the files on
+        the file system will have been accessible.  It is not thought
+        this will have had a significant effect on the nature of the
+        data.  Symbolic links and files with holes are not included.
+        Files or directories with multiple hard links are listed once.
+        Roughly 6,000,000 files surveyed.
+    data.hitz/
+        Directory containing file size data previously generated
+        by Dave Hitz of Network Appliances early in 1993.  Not used
+        in my analysis - data is not on a per file system basis.
+        Included here in case other people find it useful.  Roughly
+        200,000 files surveyed.
+    block, check, combine, inode_space, sizes, total
+        Asorted scripts I used to analyze the data.  Included in
+        the vague chance they might be of some use.  Nothing is
+        portable, nothing is documented. :-(
+    run
+        Top level script used to analyze the data.  Calls the other
+        scripts.
+    result.*
+        Raw summary data produced by "run".
+
+A lot of files are exactly size 512, or some small multiple thereof.
+This is the size taken up by a directory.
+
+A warning to anyone else contemplating a similar survey.  Remember,
+unix files can have holes in them.  I almost forgot - doing so has
+the potential to make any disk space consumption statistics totally
+bogus.
+
+                                            Gordon Irlam
+                                            gordoni@netcom.com

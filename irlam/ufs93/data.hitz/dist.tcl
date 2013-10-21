@@ -1,0 +1,14 @@
+#!/usr/bin/tclsh
+
+proc dist { file {mode ""}} {
+
+  if {$mode == ""} {
+    set outfile $file.dist
+    exec distr $file > $outfile
+  } else {
+    set outfile $file.dist.$mode
+    exec distr $file $mode > $outfile
+  }
+}
+
+eval "dist $argv"

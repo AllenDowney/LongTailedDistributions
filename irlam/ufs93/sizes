@@ -1,0 +1,47 @@
+#!/bin/sh
+
+cat $* | sort -n | awk '
+BEGIN {
+    max_limit=40;
+    pow2[0] = 0;
+    pow2[1] = 1;
+    for (i=2; i<=max_limit; i++) {
+        pow2[i] = 2 * pow2[i-1];
+    }
+    s = 0;
+}
+/^[0-9]/ {
+    size = $1;
+    num = $2;
+    while (size > pow2[s]) {
+        s++;
+    }
+    count[s] += num;
+    space[s] += num * size;
+}
+END {
+    for (i=0; i<=max_limit; i++) {
+        if (count[i] > 0) {
+            limit = i;
+        }
+    }
+    for (i=0; i<=limit; i++) {
+        files[i] = files[i-1] + count[i];
+        spaces[i] = spaces[i-1] + space[i];
+    }
+    printf("%12s %12s %7s %7s %12s %7s %7s\n", \
+           "file size", \
+           "#files", "%files", "%files", \
+           "disk space", "%space", "%space");
+    printf("%12s %12s %7s %7s %12s %7s %7s\n", \
+           "(max. bytes)", "", "", "cumm.", "(Mb)", "", "cumm.");
+    for (i=0; i<=limit; i++) {
+        printf("%12d %12d %7.1f %7.1f %12.1f %7.1f %7.1f\n", \
+               pow2[i], count[i], \
+               100.0 * count[i] / files[limit], \
+               100.0 * files[i] / files[limit], \
+               space[i] / 1.0e6, \
+               100.0 * space[i] / spaces[limit], \
+               100.0 * spaces[i] / spaces[limit]);
+    }
+}'

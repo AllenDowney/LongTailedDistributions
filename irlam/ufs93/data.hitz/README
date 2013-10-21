@@ -1,0 +1,37 @@
+From netapp!spike.netapp.com!hitz@Eng Thu Oct  7 20:34:50 1993
+Date: Thu, 7 Oct 93 19:41:13 PDT
+From: hitz@spike.netapp.com (Dave Hitz)
+Reply-To: hitz@netapp.com
+To: gordoni@netcom.com
+Subject: Subject: Some file size data.
+Content-Length: 352150
+X-Lines: 45035
+Status: RO
+
+I have some data that you will need to crunch on a little to get into
+the format that you want.  I collected this data before designing the
+file system that we use in our "NFS file server appliance".
+
+The data I still have came from three systems:
+	
+	o my dos machine at home
+	o a bunch of networked UNIX machines at Digital.
+	o a bunch of networked UNIX machines at Xerox.
+
+The results are in "size:count" pairs, with one line for each size
+represented in the file system.  For intsance, here's the start of
+the dos data:
+
+    0:527
+    1:1
+    2:11
+    3:1
+    4:2
+
+So this means there were 527 files of size zero, 1 file with 1 byte,
+11 files with 2 bytes, and so on.  The reason I kept the data at this
+level of resolution was so that I could experiment with different blocking
+factors and amount-of-data-in-inode sizes.  I hope this is useful.
+
+Dave Hitz			hitz@netapp.com
+Network Appliance Corporation	(408) 562-1906

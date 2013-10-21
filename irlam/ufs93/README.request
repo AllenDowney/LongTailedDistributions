@@ -1,0 +1,266 @@
+Newsgroups: comp.arch.storage, comp.os.research
+From: gordoni@netcom.com (Gordon Irlam)
+Subject: Survey of file sizes
+Date: Thu, 7 Oct 1993 20:19:36 GMT
+
+I am interested in gathering data on disk file sizes similar to the
+following:
+
+   file size       #files  %files   disk space  %space
+(max. bytes)                              (Mb)        
+    ...
+        1024         9226     8.6          7.1     0.4
+        2048        13280    12.4         20.4     1.2
+        4096        22324    20.9         68.6     4.1
+        8192        16224    15.2         99.7     6.0
+       16384        10342     9.7        127.1     7.7
+       32768         6637     6.2        163.1     9.9
+       65536         3299     3.1        162.2     9.8
+      131072         1429     1.3        140.5     8.5
+      262144          685     0.6        134.7     8.1
+      524288          294     0.3        115.6     7.0
+     1048576          114     0.1         89.7     5.4
+     2097152           56     0.1         88.1     5.3
+    ...
+
+Such data will help with the design and tuning of file systems.  For
+instance: BSD fast file systems statically allocate a tunable number
+of inodes per megabyte.  I am interested in determining whether
+average file sizes are now such as to justify a change in this default
+value.  I hope to make the data collected available to other people.
+If anyone knows a willing ftp site please let me know.
+
+I would appreciate it if you would run the attached unix shell script,
+which will produce a summary of file sizes similar to the above, and
+return a copy of the complete results to me.  I will collate all the
+results I receive and post a summary to the net.
+
+I have done my best to write this code in a portable fashion, but it
+is impossible to guarantee it will work correctly on all systems.
+Please don't hesitate to contact me with any comments or questions.
+
+                                Thank you,
+                                           Gordon Irlam
+                                           gordoni@netcom.com
+                                           +1 (415) 336 5889
+------------------------------------------------------------------------
+#!/bin/sh
+#
+# sizes: interactive script to measure file sizes.
+#
+# Should preferably, though not essentially, be run as root.
+#
+# Tested on:
+#     AIX 3.2
+#     DEC OSF/1 1.3
+#     HP-UX 8.02
+#     NetBSD 0.9
+#     SunOS 4.1.2, 5.1, 5.3.
+
+ME=gordoni@netcom.com
+TMP=/tmp/sizes
+
+echo "This program gathers statistics on file sizes that can be used"
+echo "to help design and tune file systems."
+echo
+echo "'df' is used to identify locally mounted file systems.  You are"
+echo "given the opportunity to exclude some of these file systems."
+echo "'find' then generates a list of file sizes and the results are"
+echo "summarized.  This program may be safely aborted at any time."
+echo
+echo "Please exclude CD-ROM file systems from the list below."
+echo "Don't worry, 'find' will not cross NFS or other mount points."
+
+# Search for disks and record the mount points
+
+echo
+echo "Press return to search for disks"
+read junk
+echo "Searching for locally mounted disks ..."
+
+df | \
+sed 's|\(/[A-Za-z0-9_/\-]*\)[^/]*\(/[A-Za-z0-9_/\-]*\).*|\1 \2|
+     /\/dev\// !d
+     s|\(.*\) \(.*/dev/.*\)|\2 \1|' > $TMP.df
+DISKS=`awk '{print $1}' $TMP.df`
+MPTS=`awk '{print $2}' $TMP.df`
+rm -f $TMP.*
+if [ `echo $DISKS | wc -w` -ne `echo $MPTS | wc -w` ]; then
+    echo "Unable to identify disks!"
+    exit
+fi
+
+# Give the user a chance to skip some of the disks
+
+i=1
+for m in $MPTS; do
+    if [ -d $m ]; then
+        NUMS="$NUMS $i"
+    fi
+    i=`expr $i + 1`
+done
+
+echo
+while :; do
+    if [ -z "$NUMS" ]; then
+        echo "No disks!"
+        exit
+    fi
+    echo "       device        mount point"
+    for i in $NUMS; do
+        d=`echo $DISKS | awk '{print $'$i'}'`
+        m=`echo $MPTS | awk '{print $'$i'}'`
+        echo "    $i)" $d "  " $m
+    done
+    echo
+    echo "Enter number of disk to ignore, or return to start processing"
+    read nums
+    if [ -z "$nums" ]; then break; fi
+    for n in $nums; do
+        OLD_NUMS=$NUMS
+        NUMS=
+        for i in $OLD_NUMS; do
+            if [ "$n" -ne $i ]; then
+                NUMS="$NUMS $i"
+            fi
+        done
+    done
+done
+
+# Work out find flags to limit search to current disk and to list files
+
+echo > $TMP.f
+
+# 4.3 BSD and friends
+find $TMP.f -type f -xdev -print > /dev/null 2>&1 && MFLAG="-xdev"
+# SVR3 and friends
+find $TMP.f -type f -mount -print > /dev/null 2>&1 && MFLAG="-mount"
+
+# SVR3 and friends - slow
+[ `ls -ilds $TMP.f 2> /dev/null | wc -w` -eq 11 ] && \
+    LFLAG="-exec ls -ilds {} ;"
+# 4.0 BSD and friends - slow
+[ `ls -gilds $TMP.f 2> /dev/null | wc -w` -eq 11 ] && \
+    LFLAG="-exec ls -gilds {} ;"
+# 4.3 BSD and friends - fast
+find $TMP.f -type f -ls > /dev/null 2>&1 && \
+    LFLAG="-ls"
+
+rm $TMP.f
+
+if [ -z "$MFLAG" -o -z "$LFLAG" ]; then
+    echo "find does not support -mount or -ls!"
+    exit
+fi
+
+# Search each disk recording file sizes
+# ignoring repeat hard links and holey files
+
+for i in $NUMS; do
+    d=`echo $DISKS | awk '{print $'$i'}'`
+    m=`echo $MPTS | awk '{print $'$i'}'`
+    echo "Processing $d $m"
+    echo "This may take a while.  Please wait ..."
+    echo BEGIN_DATA > $TMP.$i
+    find $m $MFLAG \( -type f -o -type d \) $LFLAG 2> /dev/null | \
+        awk '{if ($2 * 1024 >= $7) print $7, $1}' | sort -n | uniq | \
+        awk '{print $1}' | uniq -c | awk '{print $2, $1}' \
+        >> $TMP.$i
+    echo END_DATA >> $TMP.$i
+    echo
+done
+echo 'Phew!  All done.  Results are in "'$TMP'.*"'
+
+# Display a summary of the results
+
+echo
+echo "Summarizing results.  Please wait ..."
+
+for i in $NUMS; do
+    cat $TMP.$i
+done | sort -n | awk '
+BEGIN {
+    p=1;
+    for (i=0; i<32; i++) {
+        pow2[i] = p;
+        p = 2 * p;
+    }
+    s = 0;
+}
+/^[0-9]/ {
+    size = $1;
+    num = $2;
+    while (size > pow2[s]) {
+        s++;
+    }
+    count[s] += num;
+}
+END {
+    for (i=0; i<32; i++) {
+        if (count[i] > 0) {
+            limit = i;
+        }
+    }
+    for (i=0; i<=limit; i++) {
+        files += count[i];
+        space[i] = (pow2[i] + pow2[i-1]) / 2.0 * count[i];
+        spaces += space[i];
+    }
+    if (spaces == 0) {
+        print "No results!";
+        exit 1;
+    }
+    print
+    printf("%12s %12s %7s %12s %7s\n", \
+           "file size", "#files", "%files", "disk space", "%space");
+    printf("%12s %12s %7s %12s %7s\n", \
+           "(max. bytes)", "", "", "(Mb)", "");
+    for (i=0; i<=limit; i++) {
+        printf("%12d %12d %7.1f %12.1f %7.1f\n", \
+               pow2[i], count[i], 100.0 * count[i] / files, \
+               space[i] / 1.0e6, 100.0 * space[i] / spaces);
+    }
+}' || exit
+
+# Return the results
+
+echo
+echo "The results of this survey may be automatically or manually"
+echo "returned by mail.  Doing so will provide data that will be useful"
+echo "in the design and tuning of file systems."
+echo
+echo "All the returned results will be collated and a detailed summary"
+echo "will then be posted to the net."
+echo
+
+while :; do
+    echo "Do you wish to automatically return the results (y/n)?"
+    read RESPONSE junk
+    case "$RESPONSE" in
+        [yY]*)
+            echo
+            echo "Mailing results to $ME ..."
+            for i in $NUMS; do
+                if mail $ME < $TMP.$i; then
+                    rm $TMP.$i
+                else
+                    REQUEST=y
+                fi
+            done
+            break
+            ;;
+        [nN]*)
+            REQUEST=y
+            break
+            ;;
+    esac
+done
+
+echo
+if [ -n "$REQUEST" ]; then
+    echo 'Please mail files "'$TMP'.*" to '$ME
+else
+    echo "Thank you!"
+fi
+
+exit

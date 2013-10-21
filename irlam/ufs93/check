@@ -1,0 +1,16 @@
+#!/bin/sh
+
+nawk '
+(FNR == 1) {
+    lastsize = -1;
+}
+{
+    size = $1 + 0;
+    count = $2 + 0;
+    if ((NF != 2) || (size <= lastsize) || (count <= 0)) {
+        print "Error in file \"" FILENAME "\" line " FNR ": " $0
+        exit 1;
+    }
+    lastsize = size;
+}
+' $* || exit 1

@@ -1,0 +1,15 @@
+#!/bin/sh
+
+nawk '
+{
+    size = $1;
+    count = $2;
+    total_size += size * count;
+    total_count += count;
+}
+END {
+    print "bytes", total_size;
+    print "files", total_count;
+    print "average", total_size / total_count;
+}
+' $*

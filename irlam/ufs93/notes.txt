@@ -1,0 +1,73 @@
+/rocky/downey/sig01/irlam_survey/ufs93/data.mail % cat * | sort -n > ../all
+
+/rocky/downey/sig01/irlam_survey/ufs93 % clean.tcl all > all.clean
+
+/rocky/downey/sig01/irlam_survey/ufs93 % wc all all.clean
+2092227 4184454 15385690 all
+ 161583  323166 1412519 all.clean
+
+/rocky/downey/sig01/irlam_survey/ufs93 % irlam all.clean log > all.clean.cdf.log
+
+/rocky/downey/sig01/irlam_survey/ufs93 % irlam all.clean loglog > all.clean.cdf.loglog
+
+
+/rocky/downey/sig01/irlam_survey/ufs93 % ~/cdf/irlam_avgsd all.clean
+10.753260       2.947011
+
+lognormal_model -m9.5 -s3.8 -h30 > all.sizes.lognormal.model
+
+pareto_model -a1.2 -s4000 -h31 > all.sizes.pareto.model
+
+awk '{printf "%.3f\t%.3f\t" $1,$2}' < all.clean.cdf.loglog | head 
+
+
+
+What is the distribution of parameters among the datasets in
+the Irlam survey?
+
+/rocky/downey/sig01/model/fits % grep s0 * | awk '{print $3}' > means
+/rocky/downey/sig01/model/fits % grep gamma * | awk '{print $3}' > sigmas
+
+/rocky/downey/sig01/irlam_survey/ufs93 % avgsd means
+11.182596       2.027194        0.181281
+/rocky/downey/sig01/irlam_survey/ufs93 % avgsd sigmas
+3.283489        0.817115        0.248856
+
+If sigma were always 3.28 and the mean varied as
+N (11.2, 2.0), then the mixture would have parameters
+N (11.2, 3.84)
+
+This standard deviation is very close to the 3.8 that I
+estimated by hand.  The mean, though, is significantly
+higher.  Is that because we ignored the variability in
+the sigmas?  Or because reality just deviates from the
+model?
+
+ufs93]$ cdf -tloglog all.sizes | der | robust
+0.023625
+
+
+ufs93]$ aest -f all.sizes -n 6245454 -a 2 -l 10
+Estimate: 1.000012
+Subtracted mean: 22517.672993
+
+
+
+stat]$ ./process.tcl
+stat]$ ./report.tcl 6245454 /rocky/downey/sig01/irlam/ufs93/all.sizes
+/rocky/downey/sig01/irlam/ufs93/all.sizes
+Tail curvature = 0.023625
+
+For 21 Pareto distributions
+Mean tc = -0.002111, std = 0.006461
+tc differs from the mean by 0.025736
+12 out of 1000 samples differ by as much.  ??????????
+
+For 21 lognormal distributions
+Mean tc = 0.045130, std = 0.003414
+tc differs from the mean by 0.021505
+0 out of 1000 samples differ by as much.
+
+
+
+

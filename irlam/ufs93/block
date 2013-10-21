@@ -1,0 +1,18 @@
+#!/bin/sh
+
+bsize=$1
+shift
+
+nawk '
+{
+    size = $1;
+    count = $2;
+    blocked_size = int ((size + '$bsize' - 1) / '$bsize') * '$bsize';
+    total_count[blocked_size] += count;
+}
+END {
+    for (size in total_count) {
+        print size, total_count[size];
+    }
+}
+' $* | sort -n

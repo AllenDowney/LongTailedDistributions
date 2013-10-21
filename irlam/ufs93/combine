@@ -1,0 +1,14 @@
+#!/bin/sh
+
+nawk '
+{
+    size = $1;
+    count = $2;
+    total_count[size] += count;
+}
+END {
+    for (size in total_count) {
+        print size, total_count[size];
+    }
+}
+' $* | sort -n

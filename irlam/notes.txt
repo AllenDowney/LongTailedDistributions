@@ -1,0 +1,8 @@
+ufs93]$ cdf -tloglog all.sizes | der | robust
+0.023625
+
+
+ufs93]$ aest -f all.sizes -n 6245454 -a 2 -l 10
+Estimate: 1.000012
+Subtracted mean: 22517.672993
+

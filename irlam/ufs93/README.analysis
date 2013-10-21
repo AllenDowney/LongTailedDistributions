@@ -1,0 +1,184 @@
+Subject: ufs'93
+From: gordoni@netcom.com
+Newsgroups: comp.arch.storage,comp.unix.bsd,comp.os.research
+Followup-to: comp.arch.storage
+
+A static analysis of unix file systems circa 1993
+-------------------------------------------------
+
+Thanks to everyone who responsed to my previous request for help in
+gathering data on unix file sizes.
+
+I received file size data for 6.2 million files, residing on 650 file
+systems, on over 100 machines, with a total size of 130 gigabytes.
+
+File sizes
+----------
+
+There is no such thing as an average file system.  Some file systems
+have lots of little files.  Others have a few big files.  However as a
+mental model the notion of an average file system is invaluable.
+
+The following table gives a break down of file sizes and the amount of
+space they consume.
+
+   file size       #files  %files  %files   disk space  %space  %space
+(max. bytes)                        cumm.         (Mb)           cumm.
+           0        87995     1.4     1.4          0.0     0.0     0.0
+           1         2071     0.0     1.5          0.0     0.0     0.0
+           2         3051     0.0     1.5          0.0     0.0     0.0
+           4         6194     0.1     1.6          0.0     0.0     0.0
+           8        12878     0.2     1.8          0.1     0.0     0.0
+          16        39037     0.6     2.5          0.5     0.0     0.0
+          32       173553     2.8     5.3          4.4     0.0     0.0
+          64       193599     3.1     8.4          9.7     0.0     0.0
+         128       167152     2.7    11.1         15.6     0.0     0.0
+         256       321016     5.2    16.4         58.5     0.0     0.1
+         512       695853    11.3    27.7        307.7     0.2     0.3
+        1024       774911    12.6    40.2        616.6     0.4     0.7
+        2048       999024    16.2    56.5       1496.6     1.1     1.8
+        4096       831283    13.5    70.0       2415.3     1.8     3.6
+        8192       607046     9.9    79.8       3540.7     2.6     6.1
+       16384       474483     7.7    87.5       5549.4     4.0    10.2
+       32768       321283     5.2    92.8       7519.0     5.5    15.6
+       65536       196954     3.2    96.0       9118.5     6.6    22.2
+      131072       114489     1.9    97.8      10607.5     7.7    29.9
+      262144        64842     1.1    98.9      11906.2     8.6    38.5
+      524288        34655     0.6    99.4      12707.5     9.2    47.7
+     1048576        18493     0.3    99.7      13515.1     9.8    57.5
+     2097152         9329     0.2    99.9      13429.1     9.7    67.3
+     4194304         4002     0.1   100.0      11602.7     8.4    75.7
+     8388608         1323     0.0   100.0       7616.6     5.5    81.2
+    16777216          558     0.0   100.0       6389.5     4.6    85.8
+    33554432          274     0.0   100.0       6470.9     4.7    90.5
+    67108864          126     0.0   100.0       6255.9     4.5    95.1
+   134217728           27     0.0   100.0       2490.5     1.8    96.9
+   268435456            9     0.0   100.0       1819.7     1.3    98.2
+   536870912            7     0.0   100.0       2495.7     1.8   100.0
+
+A number of observations can be made:
+    - the distribution is heavily skewed towards small files
+    - but it has a very long tail
+    - the average file size is 22k
+    - pick a file at random: it is probably smaller than 2k
+    - pick a byte at random: it is probably in a file larger than 512k
+    - 89% of files take up 11% of the disk space
+    - 11% of files take up 89% of the disk space
+
+Such a heavily skewed distribution of file sizes suggests that if one
+was to design a file system from scratch it might make sense to employ
+radically different strategies for small and large files.
+
+The seductive power of mathematics allows us treat a 200 byte and a 2M
+file in the same way.  But do we really want to?  Are there any
+problems in engineering where the same techniques would be used in
+handling physical objects that span 6 orders of magnitude.  A quote
+from sci.physics that has stuck with me: "When things are changed by 2
+orders of magnitude you are actually dealing with a fundamentally
+different problem".
+
+People I trust say they would have expected the tail of the above
+distribution to have been even longer.  They expect at least some
+files in the 1-2G range.  They point out that DBMS shops with really
+large files might be less likely to respond to a survey like this than
+some other sites.  This would bias the disk space figures, but would
+have no appreciable effect on the file size counts.
+
+Block sizes
+-----------
+
+The last block of a file is only be partially occupied, and so as
+block sizes are increased so too will the the amount of wasted disk
+space.
+
+The following historical values for the design of the BSD FFS are
+given in "the Demon book":
+
+fragment size   overhead
+   (bytes)        (%)
+      512         4.2
+     1024         9.1
+     2048        19.7
+     4096        42.9
+
+Files have clearly got larger since then; I obtained the following
+results:
+
+fragment size   overhead
+   (bytes)        (%)
+      128         0.3
+      256         0.5
+      512         1.1
+     1024         2.4
+     2048         5.3
+     4096        11.8
+     8192        26.3
+    16384        57.6
+
+By default the BSD FFS typically uses a 1k fragment size.  Perhaps
+this size is no longer optimal and should be increased.
+
+[The FFS block size is constrained to be no more than 8 times the
+fragment size.  Clustering is a good way to improve throughput for FFS
+based file systems but it doesn't do very much to reduce the not
+insignificant FFS computational overhead.]
+
+It is interesting to note that even though most files are less than
+2k, having a 2k block size wastes very little space, because disk
+space consumption is so totally dominated by large files.
+
+Inode ratio
+-----------
+
+The BSD FFS statically allocates inodes.  By default one inode is
+allocated for every 2k of disk space.  Since an inode consumes 128
+bytes this means that by default 6.25% of disk space is consumed by
+inodes.
+
+It is important not to run out of inodes since any remaining disk
+space is then effectively wasted.  Despite this allocating 1 inode for
+every 2k is excessive.
+
+For each file system studied I worked out the minimum sized disk it
+could be placed on.  Most disks needed to be only marginally larger
+than the size of their files, but a few disks, having much smaller
+files than average, need a much larger disk - a small disk had
+insufficient inodes.
+
+bytes per   overhead
+  inode       (%)
+   1024      12.5
+   2048       6.3
+   3072       4.2
+   4096       3.5
+   5120       3.1
+   6144       3.1
+   7168       3.2
+   8192       3.5
+   9216       4.0
+  10240       4.7
+  11264       5.4
+  12288       6.5
+  13312       7.8
+  14336       9.4
+  15360      11.0
+  16384      12.9
+  17408      14.9
+  18432      17.3
+  19456      19.9
+  20480      22.6
+
+Clearly the current default of one inode for every 2k of data is too
+small.
+
+Data
+----
+
+It is not possible to condense all the potentially useful information
+down to a few tables - each file system is unique.
+
+Therefore the data for this survey is currently available for
+anonymous ftp from wildcat.dartmouth.edu as the file ufs93.tar.gz.
+
+                                             Gordon Irlam.
+                                             gordoni@netcom.com
